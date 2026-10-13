@@ -1,0 +1,131 @@
+# x-console 0.1.0
+
+x-console 是 Xmake Addon，为工程提供 Linux 和 Windows 串口终端。执行系统、运行命令、串口、速率、交互模式和控制线由 `config` 显式传入；插件不解析 `board.lua`，也不安装运行依赖。
+
+Linux 后端使用 Python 和系统串口接口，逐字符转发；Windows 后端由 Node.js 处理终端输入，PowerShell 的 `.NET SerialPort` 持有串口，按行提交命令。从 WSL 调用 Windows 时，串口仍由 Windows 访问。下载和调试由独立的 [x-pyocd](https://github.com/wmem/x-pyocd) 提供，两者互不依赖。
+
+## 安装与命令
+
+需要支持 Addon 的 Xmake。Linux 后端需要已有 Python；Windows 后端需要已有 Node.js 和 PowerShell，从 WSL 执行时还需要 `wslpath`。
+
+本地开发时，在本仓库根目录准备并安装；输出目录须尚不存在：
+
+```sh
+xmake lua scripts/prepare-addon.lua /tmp/x-console-addon-stage
+xmake addon --install /tmp/x-console-addon-stage
+```
+
+这里安装的是 Xmake 插件，不会安装 Python、Node.js 等运行依赖。当前 0.1.0 处于本地开发与验证阶段，尚未远程发布。配方发布后，可在消费工程中声明：
+
+```lua
+add_repositories("kunyi git@github.com:wmem/xmake-addons.git")
+add_addons("x-console 0.1.0")
+```
+
+版本化消费需要索引仓库中的配方和对应源码提交；仓库源码已存在不代表远程配方已发布。
+
+安装后，在消费工程的交互终端执行：
+
+```sh
+xmake x-console --config=serial.json --dry-run
+xmake x-console --config=serial.json
+```
+
+`--dry-run` 仅校验并输出配置，不打开串口；它不能证明串口或执行命令可用。正常会话使用 Ctrl+C 退出，实际执行失败时以非零状态退出。
+
+## Linux 与 Windows 配置
+
+以下为 Linux Lua API 配置示例，串口和解释器路径须替换为真实值：
+
+```lua
+local config = {
+    host = "linux",
+    mode = "raw",
+    runtime = {python = "/path/to/prepared/python"},
+    serial = {
+        port = "/dev/ttyUSB0",
+        baud_rate = 115200,
+        data_bits = 8,
+        parity = "none",
+        stop_bits = 1,
+        flow_control = "none",
+        board_control = {dtr = false, rts = false},
+    },
+}
+```
+
+Linux 后端要求 Xmake 运行在 Linux，串口可见且当前用户有访问权限。Python 也可写成 `{program = "<命令>", args = {...}}`。当前 stdin 必须是交互终端；Ctrl+C 由本机消费，退出时恢复终端状态并关闭串口。
+
+Windows 使用相同串口参数结构，替换以下字段：
+
+```lua
+config.host = "windows"
+config.mode = "line"
+config.serial.port = "COM23"
+config.runtime = {
+    node = "node",
+    powershell = "powershell.exe",
+    wslpath = "wslpath", -- 从 WSL 执行时必填；Windows 原生不需要。
+}
+```
+
+COM23 和 115200 都是示例值，插件不会探测或猜测板卡串口。`runtime.node` 是运行当前终端进程的命令，`runtime.powershell` 是持有 Windows 串口的命令；从 WSL 运行时，Node.js 与 PowerShell 通过进程 stdin/stdout 交换 JSON 请求及响应。
+
+CLI 的 `serial.json` 与上述 table 字段相同，使用 JSON 语法。所有硬件参数都必填；`board_control` 可为空对象，表示不主动设置 DTR/RTS，或显式配置布尔值。当前支持的串口合同为 8N1、无流控；其他数据位、校验位、停止位或流控配置会明确失败。
+
+## 交互及退出行为
+
+| 后端 | 当前支持的 mode | 输入和输出 |
+| --- | --- | --- |
+| Linux | `raw` | 按字符发送输入，并转发串口收到的字节；Ctrl+C 结束本机会话 |
+| Windows | `line` | 回车后提交一行命令，空闲时轮询串口输出；Ctrl+C 结束终端及串口会话 |
+
+平台与模式须同时显式配置。更换 `host` 不会自动改写 `mode`，两个后端当前也没有统一成相同的输入体验。
+
+Windows 的轮询间隔、写入超时、进程请求超时、关闭超时及单次最大接收字节数可通过 `poll_ms/write_timeout_ms/rpc_timeout_ms/close_timeout_ms/max_receive_bytes` 配置。时间单位为毫秒、长度单位为字节；这些流程参数存在默认值，实际定义和校验统一由 [api.lua](addon/modules/api.lua) 的 `plan(config)` 维护。它们不替代显式串口硬件配置。
+
+串口打开、控制线设置和关闭行为分别由 [Linux terminal.py](addon/modules/runtime/terminal.py)、[Windows terminal.mjs](addon/modules/runtime/terminal.mjs) 与 [serial.ps1](addon/modules/runtime/serial.ps1) 实现。正常结束和异常退出都需要释放串口；运行中的串口占用或设备断开会向调用方传播，不自动切换端口。
+
+## 在 xdtc action 中直接调用
+
+需要提供 action `entry` 的 xdtc 源码版本 v0.10.0 或对应的新 Addon。假定 `board.lua` 的 `tools.console` 已具备上面的配置字段：
+
+```lua
+-- xdtc.lua
+return {
+    data = "board.lua",
+    actions = {
+        console = {
+            select = "tools.console",
+            entry = function(config, api, ...)
+                local console = import("@addon.x-console.api", {anonymous = true})
+                return console.open(config)
+            end,
+        },
+    },
+}
+```
+
+```sh
+xmake xdtc console
+```
+
+xdtc 负责展开和选择配置，插件负责打开终端，不需要单独的转发脚本。公开 Lua 接口是 `plan(config)` 与 `open(config)`；前者仅校验、补齐流程参数并返回独立配置，后者执行交互。action 的 `api` 和位置参数不会自动成为串口参数。
+
+## 验证边界
+
+在 Linux 的仓库根目录，使用已有运行环境执行：
+
+```sh
+xmake lua tests/api_run.lua
+node tests/transport_run.mjs
+uv run --no-project --no-sync python tests/test_linux.py
+```
+
+公开合同、Windows JSON 传输模拟和 Linux 伪终端会话检查分别由 [api_run.lua](tests/api_run.lua)、[transport_run.mjs](tests/transport_run.mjs) 与 [test_linux.py](tests/test_linux.py) 提供。这些是检查入口和运行方式，不是实板通过记录。
+
+配置检查和模拟串口会话不能替代板卡上的完整交互验证。实板验证应确认输入、异步输出、Ctrl+C、串口重新打开及 DTR/RTS 行为；Windows 还需确认跨 WSL 的路径转换和进程退出。没有真实串口证据时，不应声称设备交互已验收或远程索引已发布。
+
+2026-10-13 在 KY3133-B00 工程中，隔离安装后的插件通过 WSL 调用 Windows SerialPort，COM23／115200 下连续两次完成打开、`status()` 返回 STATUS、`ping` 返回 PONG 和关闭；xdtc 内联 entry 的行输入会话也收到 STATUS/PONG，并通过 EOF 正常退出。记录保存在该 MCU 工程的 `build/x-addon-hardware-evidence/console-0.log`、`console-1.log` 与 `entry-console.log`。Linux 本轮仅完成伪终端测试，未接真实串口；Windows Ctrl+C、控制线电气行为和物理上电未由这次会话验证，远程发布尚未完成。
+
+许可证见 [LICENSE](LICENSE)。
