@@ -15,14 +15,14 @@ xmake lua scripts/prepare-addon.lua /tmp/x-console-addon-stage
 xmake addon --install /tmp/x-console-addon-stage
 ```
 
-这里安装的是 Xmake 插件，不会安装 Python、Node.js 等运行依赖。当前 0.1.0 处于本地开发与验证阶段，尚未远程发布。配方发布后，可在消费工程中声明：
+这里安装的是 Xmake 插件，不会安装 Python、Node.js 等运行依赖。消费工程可声明版本化依赖：
 
 ```lua
 add_repositories("kunyi git@github.com:wmem/xmake-addons.git")
 add_addons("x-console 0.1.0")
 ```
 
-版本化消费需要索引仓库中的配方和对应源码提交；仓库源码已存在不代表远程配方已发布。
+版本化安装需要索引仓库中的对应配方及其固定的源码提交。
 
 安装后，在消费工程的交互终端执行：
 
@@ -88,7 +88,7 @@ Windows 的轮询间隔、写入超时、进程请求超时、关闭超时及单
 
 ## 在 xdtc action 中直接调用
 
-需要提供 action `entry` 的 xdtc 源码版本 v0.10.0 或对应的新 Addon。假定 `board.lua` 的 `tools.console` 已具备上面的配置字段：
+需要提供 action `entry` 的 xdtc：源码版本 v0.10.0，Addon 版本 0.10.0，源码与分发版本使用相同版本号。假定 `board.lua` 的 `tools.console` 已具备上面的配置字段：
 
 ```lua
 -- xdtc.lua
@@ -124,8 +124,8 @@ uv run --no-project --no-sync python tests/test_linux.py
 
 公开合同、Windows JSON 传输模拟和 Linux 伪终端会话检查分别由 [api_run.lua](tests/api_run.lua)、[transport_run.mjs](tests/transport_run.mjs) 与 [test_linux.py](tests/test_linux.py) 提供。这些是检查入口和运行方式，不是实板通过记录。
 
-配置检查和模拟串口会话不能替代板卡上的完整交互验证。实板验证应确认输入、异步输出、Ctrl+C、串口重新打开及 DTR/RTS 行为；Windows 还需确认跨 WSL 的路径转换和进程退出。没有真实串口证据时，不应声称设备交互已验收或远程索引已发布。
+配置检查和模拟串口会话不能替代板卡上的完整交互验证。实板验证应确认输入、异步输出、Ctrl+C、串口重新打开及 DTR/RTS 行为；Windows 还需确认跨 WSL 的路径转换和进程退出。
 
-2026-10-13 在 KY3133-B00 工程中，隔离安装后的插件通过 WSL 调用 Windows SerialPort，COM23／115200 下连续两次完成打开、`status()` 返回 STATUS、`ping` 返回 PONG 和关闭；xdtc 内联 entry 的行输入会话也收到 STATUS/PONG，并通过 EOF 正常退出。记录保存在该 MCU 工程的 `build/x-addon-hardware-evidence/console-0.log`、`console-1.log` 与 `entry-console.log`。Linux 本轮仅完成伪终端测试，未接真实串口；Windows Ctrl+C、控制线电气行为和物理上电未由这次会话验证，远程发布尚未完成。
+2026-10-13 在 KY3133-B00 工程中，隔离安装后的插件通过 WSL 调用 Windows SerialPort，COM23／115200 下连续两次完成打开、`status()` 返回 STATUS、`ping` 返回 PONG 和关闭；xdtc 内联 entry 的行输入会话也收到 STATUS/PONG，并通过 EOF 正常退出。记录保存在该 MCU 工程的 `build/x-addon-hardware-evidence/console-0.log`、`console-1.log` 与 `entry-console.log`。Linux 本轮仅完成伪终端测试，未接真实串口；Windows Ctrl+C、控制线电气行为和物理上电未由这次会话验证。
 
 许可证见 [LICENSE](LICENSE)。
