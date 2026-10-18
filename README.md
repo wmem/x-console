@@ -88,7 +88,7 @@ Windows 的轮询间隔、写入超时、进程请求超时、关闭超时及单
 
 ## 在 xdtc action 中直接调用
 
-需要提供 action `entry` 的 xdtc：源码版本 v0.10.0，Addon 版本 0.10.0，源码与分发版本使用相同版本号。假定 `board.lua` 的 `tools.console` 已具备上面的配置字段：
+配合 xdtc 0.11.0 的 action `entry` 使用，工具源码与 Addon 使用相同版本号。假定 `board.lua` 的 `tools.console` 已具备上面的配置字段：
 
 ```lua
 -- xdtc.lua
