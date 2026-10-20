@@ -26,7 +26,9 @@ input.on('line', line => {
     if (mode === 'noreply') return;
     if (mode === 'malformed') { process.stdout.write('invalid-json\\n'); return; }
     if (mode === 'reject') { emit({ok: false, error: 'write failed'}); return; }
-    const response = () => emit({ok: true, text: request.text});
+    if (mode === 'missingbytes') { emit({ok: true, text: ''}); return; }
+    const response = () => emit('bytes' in request
+        ? {ok: true, bytes: request.bytes} : {ok: true, text: request.text});
     if (mode === 'slowreply') setTimeout(response, 80);
     else response();
 });
@@ -44,7 +46,7 @@ async function fixture(t, mode = 'echo') {
     const config = {host: 'windows', mode: 'line',
         runtime: {powershell, wslpath}, config_file: configFile, audit_file: audit,
         serial: {port: 'COM23', baud_rate: 115200, board_control: {dtr: false, rts: true}},
-        poll_ms: 5, rpc_timeout_ms: 1000, close_timeout_ms: 100, fake_mode: mode};
+        poll_ms: 5, rpc_timeout_ms: 1000, close_timeout_ms: 100, max_receive_bytes: 65536, fake_mode: mode};
     await writeFile(configFile, JSON.stringify(config));
     const serial = new Serial(config);
     t.after(async () => {
@@ -77,6 +79,19 @@ test('空闲交换采用 config.poll_ms，正常 close 回收进程', async t =>
     await serial.close();
 });
 
+test('字节通道完整往返0..255及空输入，不通过UTF-8解码', async t => {
+    const {serial, audit} = await fixture(t);
+    await serial.open();
+    const bytes = Buffer.from(Array.from({length: 256}, (_, i) => i));
+    assert.deepEqual(await serial.exchangeBytes(bytes, 0), bytes);
+    assert.deepEqual(await serial.exchangeBytes(), Buffer.alloc(0));
+    const records = await audit();
+    assert.equal(records[1].bytes, bytes.toString('base64'));
+    assert.equal(records[1].text, undefined);
+    assert.equal(records[2].bytes, '');
+    await assert.rejects(serial.exchangeBytes('not bytes'), /字节数组/);
+});
+
 test('拒绝同时在途的第二笔交换', async t => {
     const {serial} = await fixture(t, 'slowreply');
     await serial.open();
@@ -84,6 +99,24 @@ test('拒绝同时在途的第二笔交换', async t => {
     await assert.rejects(serial.exchange('second'), /一笔在途/);
     assert.equal(await first, 'first');
     assert.equal(await serial.exchange('after'), 'after');
+});
+
+test('字节通道与文本通道共享在途限制', async t => {
+    const {serial} = await fixture(t, 'slowreply');
+    await serial.open();
+    const first = serial.exchangeBytes(Buffer.from([9, 0xff]));
+    await assert.rejects(serial.exchange('second'), /一笔在途/);
+    assert.deepEqual(await first, Buffer.from([9, 0xff]));
+});
+
+test('字节响应缺字段及超过接收上限时明确报错', async t => {
+    const {serial} = await fixture(t, 'missingbytes');
+    await serial.open();
+    await assert.rejects(serial.exchangeBytes(), /缺少bytes/);
+    const normal = await fixture(t);
+    await normal.serial.open();
+    normal.config.max_receive_bytes = 1;
+    await assert.rejects(normal.serial.exchangeBytes(Buffer.from([0, 0xff])), /response too long/);
 });
 
 test('越界等待时间在发送前拒绝', async t => {

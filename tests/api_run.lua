@@ -80,6 +80,8 @@ test("Windows 与显式控制线、Linux 字符串 Python 可独立计划", func
     local windows = fixture("windows")
     windows.serial.board_control = {dtr = false, rts = true}
     assert(api.plan(windows).serial.board_control.rts == true)
+    windows.mode = "raw"
+    assert(api.plan(windows).mode == "raw")
     local linux = fixture()
     linux.runtime.python = "python3"
     assert(api.plan(linux).runtime.python == "python3")
@@ -127,7 +129,7 @@ test("必需参数缺失和类型错误在执行前拒绝", function()
         assert(not raw_pcall(function() api.plan(value) end), "未拒绝缺少 " .. key)
     end
     local value = fixture("windows")
-    value.mode = "raw"
+    value.mode = "invalid"
     assert(not raw_pcall(function() api.plan(value) end))
 end)
 

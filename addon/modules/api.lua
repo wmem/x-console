@@ -37,7 +37,7 @@ function plan(config)
         assert((key == "dtr" or key == "rts") and type(value) == "boolean", "x-console: 控制线只接受dtr/rts布尔值")
     end
     if c.host == "windows" then
-        assert(c.mode == "line", "x-console: Windows 后端当前支持 mode=line")
+        assert(c.mode == "line" or c.mode == "raw", "x-console: Windows 后端支持 mode=line/raw")
         text(c.runtime.node, "runtime.node")
         text(c.runtime.powershell, "runtime.powershell")
         if os.host() ~= "windows" then text(c.runtime.wslpath, "runtime.wslpath") end

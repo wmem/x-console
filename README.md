@@ -1,8 +1,8 @@
-# x-console 0.1.0
+# x-console 0.1.1
 
 x-console 是 Xmake Addon，为工程提供 Linux 和 Windows 串口终端。执行系统、运行命令、串口、速率、交互模式和控制线由 `config` 显式传入；插件不解析 `board.lua`，也不安装运行依赖。
 
-Linux 后端使用 Python 和系统串口接口，逐字符转发；Windows 后端由 Node.js 处理终端输入，PowerShell 的 `.NET SerialPort` 持有串口，按行提交命令。从 WSL 调用 Windows 时，串口仍由 Windows 访问。下载和调试由独立的 [x-pyocd](https://github.com/wmem/x-pyocd) 提供，两者互不依赖。
+Linux 后端使用 Python 和系统串口接口，逐字符转发；Windows 后端由 Node.js 处理终端输入，PowerShell 的 `.NET SerialPort` 持有串口，可选择按行提交或按字节转发。从 WSL 调用 Windows 时，串口仍由 Windows 访问。下载和调试由独立的 [x-pyocd](https://github.com/wmem/x-pyocd) 提供，两者互不依赖。
 
 ## 安装与命令
 
@@ -19,7 +19,7 @@ xmake addon --install /tmp/x-console-addon-stage
 
 ```lua
 add_repositories("kunyi git@github.com:wmem/xmake-addons.git")
-add_addons("x-console 0.1.0")
+add_addons("x-console 0.1.1")
 ```
 
 版本化安装需要索引仓库中的对应配方及其固定的源码提交。
@@ -60,7 +60,7 @@ Windows 使用相同串口参数结构，替换以下字段：
 
 ```lua
 config.host = "windows"
-config.mode = "line"
+config.mode = "raw" -- 交互终端逐字节转发；需要按行提交或管道输入时选择 line。
 config.serial.port = "COM23"
 config.runtime = {
     node = "node",
@@ -78,9 +78,12 @@ CLI 的 `serial.json` 与上述 table 字段相同，使用 JSON 语法。所有
 | 后端 | 当前支持的 mode | 输入和输出 |
 | --- | --- | --- |
 | Linux | `raw` | 按字符发送输入，并转发串口收到的字节；Ctrl+C 结束本机会话 |
-| Windows | `line` | 回车后提交一行命令，空闲时轮询串口输出；Ctrl+C 结束终端及串口会话 |
+| Windows | `raw` | 按字节发送键盘输入，Tab、方向键及退格交由设备处理；接收字节原样输出；Ctrl+C 本地退出 |
+| Windows | `line` | 回车后提交一行命令，空闲时轮询串口输出；支持管道输入和 EOF 退出 |
 
-平台与模式须同时显式配置。更换 `host` 不会自动改写 `mode`，两个后端当前也没有统一成相同的输入体验。
+平台与模式须同时显式配置，更换 `host` 不会自动改写 `mode`。Windows `raw` 要求交互终端，关闭本地回显和行编辑；Ctrl+C 本身及同一批中其后的字节不会发往设备，退出后恢复原终端模式。Windows `line` 保持原有行为。
+
+Windows 字节通道使用 Base64 JSON RPC，不经过 UTF-8 解码；任意串口字节及跨响应拆分的多字节字符均原样转发。该模式适用于设备端 Shell，Ctrl+C 被终端保留为退出键，因此并非完全透明的二进制协议终端。公开运行时 `Serial.exchange(text, waitMs)` 保留文本合同，`Serial.exchangeBytes(bytes, waitMs)` 返回 `Buffer`；二者共用同一笔在途事务限制。
 
 Windows 的轮询间隔、写入超时、进程请求超时、关闭超时及单次最大接收字节数可通过 `poll_ms/write_timeout_ms/rpc_timeout_ms/close_timeout_ms/max_receive_bytes` 配置。时间单位为毫秒、长度单位为字节；这些流程参数存在默认值，实际定义和校验统一由 [api.lua](addon/modules/api.lua) 的 `plan(config)` 维护。它们不替代显式串口硬件配置。
 
@@ -120,9 +123,10 @@ xdtc 负责展开和选择配置，插件负责打开终端，不需要单独的
 xmake lua tests/api_run.lua
 node tests/transport_run.mjs
 uv run --no-project --no-sync python tests/test_linux.py
+uv run --no-project --offline python tests/test_windows.py
 ```
 
-公开合同、Windows JSON 传输模拟和 Linux 伪终端会话检查分别由 [api_run.lua](tests/api_run.lua)、[transport_run.mjs](tests/transport_run.mjs) 与 [test_linux.py](tests/test_linux.py) 提供。这些是检查入口和运行方式，不是实板通过记录。
+公开合同、Windows JSON 传输模拟和 Linux 伪终端会话检查分别由 [api_run.lua](tests/api_run.lua)、[transport_run.mjs](tests/transport_run.mjs) 与 [test_linux.py](tests/test_linux.py) 提供。[test_windows.py](tests/test_windows.py) 使用真实终端 PTY 和模拟 Windows 串口进程，检查回车前的 Tab 转发、方向键/退格、任意字节、Ctrl+C 和异常退出后的终端恢复及串口关闭。这些是检查入口和运行方式，不是实板通过记录。
 
 配置检查和模拟串口会话不能替代板卡上的完整交互验证。实板验证应确认输入、异步输出、Ctrl+C、串口重新打开及 DTR/RTS 行为；Windows 还需确认跨 WSL 的路径转换和进程退出。
 

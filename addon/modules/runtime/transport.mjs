@@ -1,4 +1,4 @@
-// Windows持有COM口；配置和文本由JSON传递，不经shell拼接。
+// Windows持有COM口；文本及Base64字节通过JSON传递，不经shell拼接。
 import { spawn, execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -61,15 +61,28 @@ export class Serial {
     }
 
     async exchange(text = '', waitMs = this.config.poll_ms) {
+        return (await this.request({ text }, waitMs)).text;
+    }
+
+    async exchangeBytes(bytes = Buffer.alloc(0), waitMs = this.config.poll_ms) {
+        if (!(bytes instanceof Uint8Array)) throw Error('bytes必须为字节数组');
+        const message = await this.request({ bytes: Buffer.from(bytes).toString('base64') }, waitMs);
+        if (typeof message.bytes !== 'string') throw Error('串口响应缺少bytes');
+        const received = Buffer.from(message.bytes, 'base64');
+        if (received.length > this.config.max_receive_bytes) throw Error('Serial response too long');
+        return received;
+    }
+
+    async request(payload, waitMs) {
         if (this.busy) throw Error('串口只允许一笔在途事务');
         if (!Number.isInteger(waitMs) || waitMs < 0 || waitMs > 10000) throw Error('waitMs超界');
         this.busy = true;
         try {
             const received = this.next();
-            this.child.stdin.write(JSON.stringify({ text, waitMs }) + '\n');
+            this.child.stdin.write(JSON.stringify({ ...payload, waitMs }) + '\n');
             const message = await received;
             if (!message.ok) throw Error(message.error);
-            return message.text;
+            return message;
         } finally { this.busy = false; }
     }
 
