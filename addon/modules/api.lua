@@ -28,6 +28,10 @@ function plan(config)
     assert(type(c.runtime) == "table", "x-console: 请配置 runtime")
     assert(type(c.serial) == "table", "x-console: 请配置 serial")
     text(c.serial.port, "serial.port")
+    assert(c.serial.keep_configuration == nil or type(c.serial.keep_configuration) == "boolean",
+        "x-console: serial.keep_configuration 必须为布尔值")
+    assert(c.host == "linux" or not c.serial.keep_configuration,
+        "x-console: keep_configuration 当前只支持 Linux")
     local baud = c.serial.baud_rate
     assert(type(baud) == "number" and baud > 0 and baud % 1 == 0, "x-console: baud_rate 必须为正整数")
     assert(c.serial.data_bits == 8 and c.serial.parity == "none" and c.serial.stop_bits == 1

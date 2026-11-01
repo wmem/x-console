@@ -20,11 +20,15 @@ def set_lines(fd, control):
 
 @contextlib.contextmanager
 def serial_port(config):
+    keep = config.get("keep_configuration", False)
+    if type(keep) is not bool:
+        raise ValueError('serial.keep_configuration 必须为布尔值')
     speed = getattr(termios, f'B{config["baud_rate"]}', None)
     if speed is None:
         raise ValueError(f'系统不支持串口波特率 {config["baud_rate"]}')
     fd = os.open(config["port"], os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
     old = None
+    configured = False
     try:
         old = termios.tcgetattr(fd)
         set_lines(fd, config["board_control"])
@@ -33,12 +37,15 @@ def serial_port(config):
         attributes[6][termios.VMIN] = attributes[6][termios.VTIME] = 0
         termios.tcsetattr(fd, termios.TCSANOW, attributes)
         termios.tcflush(fd, termios.TCIOFLUSH)
+        configured = True
         yield fd
     finally:
         try:
             if old is not None:
-                old[2] &= ~(termios.HUPCL | termios.CRTSCTS)
-                termios.tcsetattr(fd, termios.TCSANOW, old)
+                # 板端可能在关闭后继续输出；显式保留 raw，防止日志被本地 echo 回板。
+                final = termios.tcgetattr(fd) if keep and configured else old
+                final[2] &= ~(termios.HUPCL | termios.CRTSCTS)
+                termios.tcsetattr(fd, termios.TCSANOW, final)
                 set_lines(fd, config["board_control"])
         finally:
             os.close(fd)

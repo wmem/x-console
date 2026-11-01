@@ -32,6 +32,31 @@ def read_until(fd, expected, timeout=4):
 
 
 class LinuxTerminalTests(unittest.TestCase):
+    def test_keep_configuration_prevents_async_board_output_echo_after_close(self):
+        master, slave = os.openpty()
+        try:
+            self.assertTrue(termios.tcgetattr(slave)[3] & termios.ECHO)
+            config = self.serial_config(os.ttyname(slave))
+            config["keep_configuration"] = True
+            with backend.serial_port(config):
+                pass
+            after = termios.tcgetattr(slave)
+            self.assertEqual(after[4:6], [termios.B115200, termios.B115200])
+            self.assertFalse(after[3] & (termios.ECHO | termios.ICANON))
+            os.write(master, b"PRODUCT async\r\n")
+            self.assertEqual(os.read(slave, 1024), b"PRODUCT async\r\n")
+            self.assertFalse(select.select([master], [], [], 0.05)[0], "关闭后不应将板端日志回送")
+        finally:
+            os.close(master)
+            os.close(slave)
+
+    def test_keep_configuration_invalid_value_rejected_before_open(self):
+        config = self.serial_config("/missing-port")
+        config["keep_configuration"] = "true"
+        with self.assertRaisesRegex(ValueError, "keep_configuration"):
+            with backend.serial_port(config):
+                self.fail("不应打开设备")
+
     def serial_config(self, port):
         return {"port": port, "baud_rate": 115200, "data_bits": 8,
                 "parity": "none", "stop_bits": 1, "flow_control": "none", "board_control": {}}

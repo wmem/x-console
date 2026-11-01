@@ -133,5 +133,18 @@ test("必需参数缺失和类型错误在执行前拒绝", function()
     assert(not raw_pcall(function() api.plan(value) end))
 end)
 
+test("Linux 可选择保留串口配置且兼容原默认行为", function()
+    local c = fixture()
+    c.serial.keep_configuration = true
+    assert(api.plan(c).serial.keep_configuration == true)
+    c.serial.keep_configuration = "true"
+    assert(not raw_pcall(function() api.plan(c) end))
+    local windows = fixture("windows")
+    windows.serial.keep_configuration = true
+    assert(not raw_pcall(function() api.plan(windows) end))
+    windows.serial.keep_configuration = false
+    assert(api.plan(windows).serial.keep_configuration == false)
+end)
+
 print("x-console.api tests: %d passed, %d failed", passed, failed)
 assert(failed == 0, "x-console 配置测试失败")

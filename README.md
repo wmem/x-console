@@ -1,4 +1,6 @@
-# x-console 0.1.1
+# x-console 0.2.0
+
+0.2.0 新增 Linux 的可选 `serial.keep_configuration=true`：会话退出后保留已配置的串口 raw 模式及波特率，避免异步板端日志在恢复本地 echo 后被回送到设备。未设置或 false 时保留原来的串口属性恢复行为。操作人员 stdin 的终端属性始终恢复，DTR/RTS 仍完全由 `serial.board_control` 决定。此选项不支持 Windows=true，不安装或更换串口驱动。
 
 x-console 是 Xmake Addon，为工程提供 Linux 和 Windows 串口终端。执行系统、运行命令、串口、速率、交互模式和控制线由 `config` 显式传入；插件不解析 `board.lua`，也不安装运行依赖。
 
@@ -19,7 +21,7 @@ xmake addon --install /tmp/x-console-addon-stage
 
 ```lua
 add_repositories("kunyi git@github.com:wmem/xmake-addons.git")
-add_addons("x-console 0.1.1")
+add_addons("x-console 0.2.0")
 ```
 
 版本化安装需要索引仓库中的对应配方及其固定的源码提交。
