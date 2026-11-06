@@ -1,0 +1,36 @@
+{% section id="x-console:use:quickstart" title="安装与首次连接" %}
+
+{% section id="x-console:use:quickstart:install" title="安装与命令" %}
+
+需要支持 Addon 的 Xmake。Linux 后端需要已有 Python；Windows 后端需要已有 Node.js 和 PowerShell，从 WSL 执行时还需要 `wslpath`。
+
+本地开发时，在本仓库根目录准备并安装；输出目录须尚不存在：
+
+```sh {% process=false %}
+xmake lua scripts/prepare-addon.lua /tmp/x-console-addon-stage
+xmake addon --install /tmp/x-console-addon-stage
+```
+
+这里安装的是 Xmake 插件，不会安装 Python、Node.js 等运行依赖。消费工程可声明版本化依赖：
+
+```lua {% process=false %}
+add_repositories("kunyi git@github.com:wmem/xmake-addons.git")
+add_addons("x-console 0.2.0")
+```
+
+版本化安装需要索引仓库中的对应配方及其固定的源码提交。
+
+先按[平台配置](reference/config.mdoc)创建 serial.json，使用真实串口、波特率和解释器路径。
+
+安装后，在消费工程的交互终端执行：
+
+```sh {% process=false %}
+xmake x-console --config=serial.json --dry-run
+xmake x-console --config=serial.json
+```
+
+`--dry-run` 仅校验并输出配置，不打开串口；它不能证明串口或执行命令可用。正常会话使用 Ctrl+C 退出，实际执行失败时以非零状态退出。
+
+{% /section %}
+
+{% /section %}

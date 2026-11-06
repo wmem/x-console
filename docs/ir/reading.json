@@ -1,0 +1,151 @@
+{
+  "objects": [
+    {
+      "id": "x-console:reading:session:config",
+      "kind": "node",
+      "label": "准备并校验配置",
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    },
+    {
+      "id": "x-console:reading:session:open",
+      "kind": "node",
+      "label": "打开指定串口",
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    },
+    {
+      "id": "x-console:reading:session:exchange",
+      "kind": "node",
+      "label": "交互发送与接收",
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    },
+    {
+      "id": "x-console:reading:session:close",
+      "kind": "node",
+      "label": "关闭与恢复",
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "x-console:reading:session:edge:open",
+      "kind": "connection",
+      "class": "执行顺序",
+      "label": "启动会话",
+      "endpoints": [
+        "x-console:reading:session:config",
+        "x-console:reading:session:open"
+      ],
+      "direction": {
+        "sources": [
+          "x-console:reading:session:config"
+        ],
+        "targets": [
+          "x-console:reading:session:open"
+        ]
+      },
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    },
+    {
+      "id": "x-console:reading:session:edge:exchange",
+      "kind": "connection",
+      "class": "执行顺序",
+      "label": "所选 raw / line 模式",
+      "endpoints": [
+        "x-console:reading:session:open",
+        "x-console:reading:session:exchange"
+      ],
+      "direction": {
+        "sources": [
+          "x-console:reading:session:open"
+        ],
+        "targets": [
+          "x-console:reading:session:exchange"
+        ]
+      },
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    },
+    {
+      "id": "x-console:reading:session:edge:close",
+      "kind": "connection",
+      "class": "执行顺序",
+      "label": "退出 / EOF / 异常",
+      "endpoints": [
+        "x-console:reading:session:exchange",
+        "x-console:reading:session:close"
+      ],
+      "direction": {
+        "sources": [
+          "x-console:reading:session:exchange"
+        ],
+        "targets": [
+          "x-console:reading:session:close"
+        ]
+      },
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    }
+  ],
+  "views": [
+    {
+      "id": "x-console:reading:session",
+      "kind": "architecture",
+      "label": "串口会话生命周期",
+      "include": {
+        "objects": [
+          "x-console:reading:session:config",
+          "x-console:reading:session:open",
+          "x-console:reading:session:exchange",
+          "x-console:reading:session:close"
+        ],
+        "relations": [
+          "x-console:reading:session:edge:open",
+          "x-console:reading:session:edge:exchange",
+          "x-console:reading:session:edge:close"
+        ]
+      },
+      "layout": {
+        "direction": "TB",
+        "routing": "orthogonal",
+        "constraints": [
+          {
+            "type": "order",
+            "axis": "y",
+            "nodes": [
+              "x-console:reading:session:config",
+              "x-console:reading:session:open",
+              "x-console:reading:session:exchange",
+              "x-console:reading:session:close"
+            ],
+            "gap": 36
+          },
+          {
+            "type": "align",
+            "axis": "x",
+            "nodes": [
+              "x-console:reading:session:config",
+              "x-console:reading:session:open",
+              "x-console:reading:session:exchange",
+              "x-console:reading:session:close"
+            ]
+          }
+        ]
+      },
+      "source": {
+        "file": "docs/usage/session.mdoc"
+      }
+    }
+  ]
+}

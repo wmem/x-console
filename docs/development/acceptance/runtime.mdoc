@@ -1,0 +1,30 @@
+{% section id="x-console:dev:acceptance:runtime" title="后端验证与边界" %}
+
+{% section id="x-console:dev:acceptance:runtime:scope" title="验证边界" %}
+
+在 Linux 的仓库根目录，使用已有运行环境执行：
+
+```sh {% process=false %}
+xmake lua tests/api_run.lua
+node tests/transport_run.mjs
+uv run --no-project --no-sync python tests/test_linux.py
+uv run --no-project --offline python tests/test_windows.py
+```
+
+公开合同、Windows JSON 传输模拟和 Linux 伪终端会话检查分别由 [api_run.lua](../sources.mdoc#x-console:source:tests:api_run:lua)、[transport_run.mjs](../sources.mdoc#x-console:source:tests:transport_run:mjs) 与 [test_linux.py](../sources.mdoc#x-console:source:tests:test_linux:py) 提供。
+
+[test_windows.py](../sources.mdoc#x-console:source:tests:test_windows:py) 使用真实终端 PTY 和模拟 Windows 串口进程，检查回车前的 Tab 转发、方向键/退格、任意字节、Ctrl+C 和异常退出后的终端恢复及串口关闭。这些是检查入口和运行方式，不是实板通过记录。
+
+配置检查和模拟串口会话不能替代板卡上的完整交互验证。实板验证应确认输入、异步输出、Ctrl+C、串口重新打开及 DTR/RTS 行为；Windows 还需确认跨 WSL 的路径转换和进程退出。
+
+2026-10-13 在 KY3133-B00 工程中，隔离安装后的插件通过 WSL 调用 Windows SerialPort，COM23／115200 下连续两次完成打开、`status()` 返回 STATUS、`ping` 返回 PONG 和关闭；xdtc 内联 entry 的行输入会话也收到 STATUS/PONG，并通过 EOF 正常退出。
+
+记录保存在该 MCU 工程的 `build/x-addon-hardware-evidence/console-0.log`、`console-1.log` 与 `entry-console.log`。
+
+Linux 本轮仅完成伪终端测试，未接真实串口；Windows Ctrl+C、控制线电气行为和物理上电未由这次会话验证。
+
+许可证见 [LICENSE](../sources.mdoc#x-console:source:LICENSE)。
+
+{% /section %}
+
+{% /section %}

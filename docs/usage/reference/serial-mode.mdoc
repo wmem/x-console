@@ -1,0 +1,9 @@
+{% section id="x-console:use:reference:serial-mode" title="串口模式保留与兼容性" %}
+
+0.2.0 新增 Linux 的可选 `serial.keep_configuration=true`：会话退出后保留已配置的串口 raw 模式及波特率，避免异步板端日志在恢复本地 echo 后被回送到设备。未设置或 false 时保留原来的串口属性恢复行为。
+
+操作人员 stdin 的终端属性始终恢复，DTR/RTS 仍完全由 `serial.board_control` 决定。此选项不支持 Windows=true，不安装或更换串口驱动。
+
+其他字段见[平台配置](config.mdoc)。
+
+{% /section %}

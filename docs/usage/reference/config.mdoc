@@ -1,0 +1,75 @@
+{% section id="x-console:use:reference:config" title="Linux 与 Windows 配置" %}
+
+{% section id="x-console:use:reference:config:platforms" title="Linux 与 Windows 配置" %}
+
+以下为 Linux Lua API 配置示例，串口和解释器路径须替换为真实值：
+
+```lua {% process=false %}
+local config = {
+    host = "linux",
+    mode = "raw",
+    runtime = {python = "/path/to/prepared/python"},
+    serial = {
+        port = "/dev/ttyUSB0",
+        baud_rate = 115200,
+        data_bits = 8,
+        parity = "none",
+        stop_bits = 1,
+        flow_control = "none",
+        board_control = {dtr = false, rts = false},
+    },
+}
+```
+
+Linux 后端要求 Xmake 运行在 Linux，串口可见且当前用户有访问权限。Python 也可写成 `{program = "<命令>", args = {...}}`。当前 stdin 必须是交互终端；Ctrl+C 由本机消费，退出时恢复终端状态并关闭串口。
+
+Windows 使用相同串口参数结构，替换以下字段：
+
+```lua {% process=false %}
+config.host = "windows"
+config.mode = "raw" -- 交互终端逐字节转发；需要按行提交或管道输入时选择 line。
+config.serial.port = "COM23"
+config.runtime = {
+    node = "node",
+    powershell = "powershell.exe",
+    wslpath = "wslpath", -- 从 WSL 执行时必填；Windows 原生不需要。
+}
+```
+
+COM23 和 115200 都是示例值，插件不会探测或猜测板卡串口。`runtime.node` 是运行当前终端进程的命令，`runtime.powershell` 是持有 Windows 串口的命令；从 WSL 运行时，Node.js 与 PowerShell 通过进程 stdin/stdout 交换 JSON 请求及响应。
+
+CLI 的 `serial.json` 与上述 table 字段相同，使用 JSON 语法。所有硬件参数都必填；`board_control` 可为空对象，表示不主动设置 DTR/RTS，或显式配置布尔值。当前支持的串口合同为 8N1、无流控；其他数据位、校验位、停止位或流控配置会明确失败。
+
+{% /section %}
+
+{% section id="x-console:use:reference:config:interaction" title="交互及退出行为" %}
+
+| 后端 | 当前支持的 mode | 输入和输出 |
+| --- | --- | --- |
+| Linux | `raw` | 按字符发送输入，并转发串口收到的字节；Ctrl+C 结束本机会话 |
+| Windows | `raw` | 按字节发送键盘输入，Tab、方向键及退格交由设备处理；接收字节原样输出；Ctrl+C 本地退出 |
+| Windows | `line` | 回车后提交一行命令，空闲时轮询串口输出；支持管道输入和 EOF 退出 |
+
+平台与模式须同时显式配置，更换 `host` 不会自动改写 `mode`。Windows `raw` 要求交互终端，关闭本地回显和行编辑；Ctrl+C 本身及同一批中其后的字节不会发往设备，退出后恢复原终端模式。Windows `line` 保持原有行为。
+
+Windows 字节通道使用 Base64 JSON RPC，不经过 UTF-8 解码；任意串口字节及跨响应拆分的多字节字符均原样转发。该模式适用于设备端 Shell，Ctrl+C 被终端保留为退出键，因此并非完全透明的二进制协议终端。
+
+公开运行时 `Serial.exchange(text, waitMs)` 保留文本合同，`Serial.exchangeBytes(bytes, waitMs)` 返回 `Buffer`；二者共用同一笔在途事务限制。
+
+Windows 的流程参数有默认值，统一由 [api.lua](../../development/sources.mdoc#x-console:source:addon:modules:api:lua) 的 plan(config) 定义和校验：
+
+| 参数 | 作用 | 单位 |
+| --- | --- | --- |
+| poll_ms | 轮询间隔 | 毫秒 |
+| write_timeout_ms | 写入超时 | 毫秒 |
+| rpc_timeout_ms | 进程请求超时 | 毫秒 |
+| close_timeout_ms | 关闭超时 | 毫秒 |
+| max_receive_bytes | 单次最大接收长度 | 字节 |
+
+这些参数不替代必须显式提供的串口硬件配置。
+
+串口打开、控制线设置和关闭行为分别由 [Linux terminal.py](../../development/sources.mdoc#x-console:source:addon:modules:runtime:terminal:py)、[Windows terminal.mjs](../../development/sources.mdoc#x-console:source:addon:modules:runtime:terminal:mjs) 与 [serial.ps1](../../development/sources.mdoc#x-console:source:addon:modules:runtime:serial:ps1) 实现。正常结束和异常退出都需要释放串口；运行中的串口占用或设备断开会向调用方传播，不自动切换端口。
+
+{% /section %}
+
+{% /section %}

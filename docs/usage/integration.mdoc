@@ -1,0 +1,31 @@
+{% section id="x-console:use:integration" title="在 xdtc action 中调用" %}
+
+{% section id="x-console:use:integration:entry" title="在 xdtc action 中直接调用" %}
+
+配合 xdtc 0.11.0 的 action `entry` 使用，工具源码与 Addon 使用相同版本号。假定 `board.lua` 的 `tools.console` 已按[配置参考](reference/config.mdoc)提供完整字段：
+
+```lua {% process=false %}
+-- xdtc.lua
+return {
+    data = "board.lua",
+    actions = {
+        console = {
+            select = "tools.console",
+            entry = function(config, api, ...)
+                local console = import("@addon.x-console.api", {anonymous = true})
+                return console.open(config)
+            end,
+        },
+    },
+}
+```
+
+```sh {% process=false %}
+xmake xdtc console
+```
+
+xdtc 负责展开和选择配置，插件负责打开终端，不需要单独的转发脚本。公开 Lua 接口是 `plan(config)` 与 `open(config)`；前者仅校验、补齐流程参数并返回独立配置，后者执行交互。action 的 `api` 和位置参数不会自动成为串口参数。
+
+{% /section %}
+
+{% /section %}

@@ -1,0 +1,7 @@
+{% section id="x-console:use:overview" title="认识 x-console" %}
+
+x-console 是 Xmake Addon，为工程提供 Linux 和 Windows 串口终端。执行系统、运行命令、串口、速率、交互模式和控制线由 `config` 显式传入；插件不解析 `board.lua`，也不安装运行依赖。
+
+Linux 后端使用 Python 和系统串口接口，逐字符转发；Windows 后端由 Node.js 处理终端输入，PowerShell 的 `.NET SerialPort` 持有串口，可选择按行提交或按字节转发。从 WSL 调用 Windows 时，串口仍由 Windows 访问。下载和调试由独立的 [x-pyocd](https://github.com/wmem/x-pyocd) 提供，两者互不依赖。
+
+{% /section %}

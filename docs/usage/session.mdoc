@@ -1,0 +1,18 @@
+{% section id="x-console:use:session" title="串口会话与退出" %}
+
+按[平台配置](reference/config.mdoc)选择 Linux 或 Windows，填入真实串口、波特率、解释器与控制线策略。先检查配置，再在交互终端运行：
+
+{% relation-diagram id="x-console:reading:session" /%}
+
+最后一步会关闭串口并恢复操作人员终端。Linux 的串口属性是否恢复，还取决于[keep_configuration](reference/serial-mode.mdoc)；控制线仍由 serial.board_control 决定。
+
+```sh {% process=false %}
+xmake x-console --config=serial.json --dry-run
+xmake x-console --config=serial.json
+```
+
+配置检查不打开串口。进入会话后确认输入和异步输出，按 Ctrl+C 退出，再确认串口可重新打开。Windows 的行提交与逐字节转发按 mode 选择，控制线由 serial.board_control 显式决定。
+
+Linux 如需会话后保留串口 raw 配置，先阅读[模式保留条件](reference/serial-mode.mdoc)；操作人员终端与串口设备的恢复行为不同。平台依赖和完整退出规则均以[配置参考](reference/config.mdoc)为准。
+
+{% /section %}

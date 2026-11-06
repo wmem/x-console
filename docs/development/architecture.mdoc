@@ -1,0 +1,7 @@
+{% section id="x-console:dev:architecture" title="架构与边界" %}
+
+[api.lua](sources.mdoc#x-console:source:addon:modules:api:lua) 负责公开配置合同与调用入口；Addon [main.lua](sources.mdoc#x-console:source:addon:plugins:x-console:main:lua) 把 CLI 配置交给 API。Linux 使用 [terminal.py](sources.mdoc#x-console:source:addon:modules:runtime:terminal:py)；Windows 由 [terminal.mjs](sources.mdoc#x-console:source:addon:modules:runtime:terminal:mjs)、[transport.mjs](sources.mdoc#x-console:source:addon:modules:runtime:transport:mjs) 与 [serial.ps1](sources.mdoc#x-console:source:addon:modules:runtime:serial:ps1) 协作处理终端输入、JSON 传输及 SerialPort。
+
+终端属性、串口属性、进程退出及控制线各有自己的生命周期。修改一端时检查对应恢复路径；Linux PTY 和模拟 Windows 传输只证明声明的后端合同，实板范围见[验收记录](acceptance/runtime.mdoc)。
+
+{% /section %}
